@@ -1,0 +1,5 @@
+error: duplicate key
+  --> Cargo.toml:15:1
+   |
+15 | uuid = { version = "1.26.1", features = ["v4"] }
+   | ^^^^

@@ -1,0 +1,32 @@
+[package]
+name = "bank_deposits"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies.uuid]
+version = "1.26.1"
+features = ["v4"]
+
+[dependencies.time]
+version = "0.3.55"
+features = ["formatting", "macros"]
+
+[dependencies]
+uuid = { version = "1.26.1", features = ["v4"] }
+time = { version = "0.3.55", features = ["formatting", "macros"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "time", "macros"] }
+tokio = { version = "1", features = ["full"] }
+dotenvy = "0.15"
+[dependencies.smol]
+version = "2"
+
+[dependencies.rusqlite]
+version = "0.40.2"
+features = ["bundled", "functions", "time", "uuid"]
+
+[dependencies.async-sqlite]
+version = "0.6.0"
+features = ["array", "backup", "blob", "bundled", "cache", "time", "uuid", "vtab", "window"]
+
+[dependencies.async-lock]
+version = "3.4.2"
