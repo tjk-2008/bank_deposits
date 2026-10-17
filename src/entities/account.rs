@@ -1,8 +1,8 @@
 use time::UtcDateTime;
 use uuid::Uuid;
 
-use crate::models::client::Client;
-use crate::models::deposit::Deposit;
+use crate::entities::client::Client;
+use crate::entities::deposit::Deposit;
 
 #[doc = "Счёт клиента банка.
         Поля:

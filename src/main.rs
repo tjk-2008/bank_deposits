@@ -1,49 +1,50 @@
-mod models;
+use std::sync::Arc;
 
-use models::{Account, Client, Deposit};
+use async_sqlite::{JournalMode, PoolBuilder};
+use ohkami::fang::Context;
+use ohkami::{Ohkami, Route};
 
-fn main() {
-    // 1. Создаём вид вклада
-    let deposit = Deposit::create_new("Срочный вклад «Выгодный»".to_string(), 12, 7.5);
+mod context;
+mod contracts;
+mod contracts_impl;
+mod entities;
+mod http;
 
-    // 2. Создаём клиента
-    let client = Client::create_new(
-        "Иванов Иван Иванович".to_string(),
-        "4509 123456".to_string(),
-        "г. Москва, ул. Тверская, д. 1".to_string(),
-        "+7-900-123-45-67".to_string(),
-    );
+use context::RequestContext;
 
-    // 3. Открываем счёт
-    let account = Account::create_new(&client, &deposit, 100_000.0);
+fn main() -> smol::io::Result<()> {
+    smol::block_on(async {
+        let pool = PoolBuilder::new()
+            .path("database/data.db")
+            .journal_mode(JournalMode::Wal)
+            .num_conns(10)
+            .open()
+            .await
+            .expect("Database creation error");
 
-    println!(
-        "Вклад:   {} ({} мес., {}%)",
-        deposit.name, deposit.term_months, deposit.rate_percent
-    );
-    println!("Клиент:  {}", client.full_name);
-    println!("Счёт:    {} на сумму {} руб.", account.id, account.amount);
-}
+        let request_context = RequestContext::new(Arc::new(pool));
 
-use sqlx::sqlite::SqlitePoolOptions;
+        Ohkami::new((
+            Context::new(request_context),
+            "/deposits".POST(http::deposits::add_deposit),
+            "/deposits/:id"
+                .GET(http::deposits::get_deposit)
+                .PUT(http::deposits::update_deposit)
+                .DELETE(http::deposits::remove_deposit),
+            "/clients".POST(http::clients::add_client),
+            "/clients/:id"
+                .GET(http::clients::get_client)
+                .PUT(http::clients::update_client)
+                .DELETE(http::clients::remove_client),
+            "/accounts".POST(http::accounts::add_account),
+            "/accounts/:id"
+                .GET(http::accounts::get_account)
+                .PUT(http::accounts::update_account)
+                .DELETE(http::accounts::remove_account),
+        ))
+        .howl("localhost:3000")
+        .await;
 
-#[tokio::main]
-async fn main() -> Result<(), sqlx::Error> {
-    dotenvy::dotenv().ok();
-
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    let pool = SqlitePoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await?;
-
-    // Проверка: считаем количество вкладов
-    let count: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM deposits")
-        .fetch_one(&pool)
-        .await?;
-
-    println!("Вкладов в БД: {}", count.0);
-
-    Ok(())
+        Ok(())
+    })
 }
