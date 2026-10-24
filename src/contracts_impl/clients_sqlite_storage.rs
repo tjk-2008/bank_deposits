@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::contracts::ClientsStorage;
+use crate::contracts_impl::datetime;
 use crate::entities::Client;
 
 pub struct ClientsSqliteStorage {
@@ -44,9 +45,9 @@ impl ClientsStorage for ClientsSqliteStorage {
             client.passport_number.into(),
             client.address.into(),
             client.phone.into(),
-            client.created_at.to_string().into(),
-            client.updated_at.map(|d| d.to_string()).into(),
-            client.deleted_at.map(|d| d.to_string()).into(),
+            datetime::format(client.created_at).into(),
+            datetime::format_opt(client.updated_at).into(),
+            datetime::format_opt(client.deleted_at).into(),
         ];
 
         self.connection
@@ -90,20 +91,22 @@ impl ClientsStorage for ClientsSqliteStorage {
             })
             .await?;
 
-        let client = row.map(
-            |(id, full_name, passport_number, address, phone, _c, _u, _d)| Client {
-                id,
-                full_name,
-                passport_number,
-                address,
-                phone,
-                created_at: time::UtcDateTime::now(),
-                updated_at: None,
-                deleted_at: None,
-            },
-        );
+        let Some((id, full_name, passport_number, address, phone, created_at, updated_at, deleted_at)) =
+            row
+        else {
+            return Ok(None);
+        };
 
-        Ok(client)
+        Ok(Some(Client {
+            id,
+            full_name,
+            passport_number,
+            address,
+            phone,
+            created_at: datetime::parse(&created_at)?,
+            updated_at: datetime::parse_opt(updated_at.as_deref())?,
+            deleted_at: datetime::parse_opt(deleted_at.as_deref())?,
+        }))
     }
 
     async fn remove(&self, uuid: Uuid) -> Result<(), Box<dyn std::error::Error>> {
@@ -133,8 +136,8 @@ impl ClientsStorage for ClientsSqliteStorage {
             client.passport_number.clone().into(),
             client.address.clone().into(),
             client.phone.clone().into(),
-            client.updated_at.map(|d| d.to_string()).into(),
-            client.deleted_at.map(|d| d.to_string()).into(),
+            datetime::format_opt(client.updated_at).into(),
+            datetime::format_opt(client.deleted_at).into(),
             client.id.into(),
         ];
 

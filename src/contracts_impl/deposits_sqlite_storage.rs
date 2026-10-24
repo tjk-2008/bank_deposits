@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::contracts::DepositsStorage;
+use crate::contracts_impl::datetime;
 use crate::entities::Deposit;
 
 pub struct DepositsSqliteStorage {
@@ -42,9 +43,9 @@ impl DepositsStorage for DepositsSqliteStorage {
             deposit.name.into(),
             deposit.term_months.into(),
             deposit.rate_percent.into(),
-            deposit.created_at.to_string().into(),
-            deposit.updated_at.map(|d| d.to_string()).into(),
-            deposit.deleted_at.map(|d| d.to_string()).into(),
+            datetime::format(deposit.created_at).into(),
+            datetime::format_opt(deposit.updated_at).into(),
+            datetime::format_opt(deposit.deleted_at).into(),
         ];
 
         self.connection
@@ -86,21 +87,20 @@ impl DepositsStorage for DepositsSqliteStorage {
             })
             .await?;
 
-        let deposit = row.map(
-            |(id, name, term_months, rate_percent, _created_at, _updated_at, _deleted_at)| {
-                Deposit {
-                    id,
-                    name,
-                    term_months,
-                    rate_percent,
-                    created_at: time::UtcDateTime::now(), // TODO: parse from string
-                    updated_at: None,
-                    deleted_at: None,
-                }
-            },
-        );
+        let Some((id, name, term_months, rate_percent, created_at, updated_at, deleted_at)) = row
+        else {
+            return Ok(None);
+        };
 
-        Ok(deposit)
+        Ok(Some(Deposit {
+            id,
+            name,
+            term_months,
+            rate_percent,
+            created_at: datetime::parse(&created_at)?,
+            updated_at: datetime::parse_opt(updated_at.as_deref())?,
+            deleted_at: datetime::parse_opt(deleted_at.as_deref())?,
+        }))
     }
 
     async fn remove(&self, uuid: Uuid) -> Result<(), Box<dyn std::error::Error>> {
@@ -129,8 +129,8 @@ impl DepositsStorage for DepositsSqliteStorage {
             deposit.name.clone().into(),
             deposit.term_months.into(),
             deposit.rate_percent.into(),
-            deposit.updated_at.map(|d| d.to_string()).into(),
-            deposit.deleted_at.map(|d| d.to_string()).into(),
+            datetime::format_opt(deposit.updated_at).into(),
+            datetime::format_opt(deposit.deleted_at).into(),
             deposit.id.into(),
         ];
 
