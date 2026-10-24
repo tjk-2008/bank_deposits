@@ -9,6 +9,7 @@ use crate::contracts::DepositsStorage;
 use crate::contracts_impl::DepositsSqliteStorage;
 use crate::entities::Deposit;
 
+use super::database_error;
 use super::payloads::{AddDepositPayload, DepositResponse, ErrorResponse, UpdateDepositPayload};
 
 pub async fn add_deposit(
@@ -39,7 +40,10 @@ pub async fn add_deposit(
         rate_percent: deposit.rate_percent,
     };
 
-    let storage = DepositsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = DepositsSqliteStorage::from_connection(connection.client().clone());
     match storage.add(deposit).await {
         Ok(()) => Response::Created().with_json(response_payload),
         Err(error) => {
@@ -61,7 +65,10 @@ pub async fn get_deposit(
         });
     };
 
-    let storage = DepositsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = DepositsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(deposit)) => Response::OK().with_json(DepositResponse {
             id: deposit.id.to_string(),
@@ -107,7 +114,10 @@ pub async fn update_deposit(
         });
     }
 
-    let storage = DepositsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = DepositsSqliteStorage::from_connection(connection.client().clone());
     let existing = match storage.get(id).await {
         Ok(Some(deposit)) => deposit,
         Ok(None) => {
@@ -159,7 +169,10 @@ pub async fn remove_deposit(
         });
     };
 
-    let storage = DepositsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = DepositsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(_)) => {}
         Ok(None) => {

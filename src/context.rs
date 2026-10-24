@@ -1,17 +1,17 @@
 use std::sync::Arc;
 
-use async_sqlite::Pool;
+use crate::contracts_impl::ManagedConnectionPool;
 
-/// Общий контекст запроса: пул соединений, доступный всем обработчикам.
-/// Обёрнут в `Arc`, потому что Ohkami требует `Clone` для контекста,
-/// а клонирование `Pool` дешёвое — копируется только указатель.
+/// Общий контекст запроса: управляемый пул соединений, доступный всем
+/// обработчикам. Обёрнут в `Arc`, потому что Ohkami требует `Clone`
+/// для контекста, а клонирование `Arc` дешёвое — копируется только указатель.
 #[derive(Clone)]
 pub struct RequestContext {
-    pub connection_pool: Arc<Pool>,
+    pub connection_pool: Arc<ManagedConnectionPool>,
 }
 
 impl RequestContext {
-    pub fn new(connection_pool: Arc<Pool>) -> Self {
+    pub fn new(connection_pool: Arc<ManagedConnectionPool>) -> Self {
         Self { connection_pool }
     }
 }

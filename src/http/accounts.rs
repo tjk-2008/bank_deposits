@@ -9,6 +9,7 @@ use crate::contracts::{AccountsStorage, ClientsStorage, DepositsStorage};
 use crate::contracts_impl::{AccountsSqliteStorage, ClientsSqliteStorage, DepositsSqliteStorage};
 use crate::entities::Account;
 
+use super::database_error;
 use super::payloads::{AccountResponse, AddAccountPayload, ErrorResponse, UpdateAccountPayload};
 
 fn to_response(account: &Account) -> AccountResponse {
@@ -42,10 +43,12 @@ pub async fn add_account(
         });
     }
 
-    let pool = (*context.connection_pool).clone();
-    let clients_storage = ClientsSqliteStorage::from_pool(pool.clone());
-    let deposits_storage = DepositsSqliteStorage::from_pool(pool.clone());
-    let accounts_storage = AccountsSqliteStorage::from_pool(pool);
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let clients_storage = ClientsSqliteStorage::from_connection(connection.client().clone());
+    let deposits_storage = DepositsSqliteStorage::from_connection(connection.client().clone());
+    let accounts_storage = AccountsSqliteStorage::from_connection(connection.client().clone());
 
     let client = match clients_storage.get(client_id).await {
         Ok(Some(client)) => client,
@@ -100,7 +103,10 @@ pub async fn get_account(
         });
     };
 
-    let storage = AccountsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = AccountsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(account)) => Response::OK().with_json(to_response(&account)),
         Ok(None) => Response::NotFound().with_json(ErrorResponse {
@@ -141,7 +147,10 @@ pub async fn update_account(
         });
     }
 
-    let storage = AccountsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = AccountsSqliteStorage::from_connection(connection.client().clone());
     let existing = match storage.get(id).await {
         Ok(Some(account)) => account,
         Ok(None) => {
@@ -190,7 +199,10 @@ pub async fn remove_account(
         });
     };
 
-    let storage = AccountsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = AccountsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(_)) => {}
         Ok(None) => {

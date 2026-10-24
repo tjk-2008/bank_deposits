@@ -1,6 +1,5 @@
-use async_sqlite::{JournalMode, Pool, PoolBuilder};
+use async_sqlite::Client;
 use rusqlite::{params_from_iter, types::Value, OptionalExtension};
-use std::path::PathBuf;
 use uuid::Uuid;
 
 use crate::contracts::DepositsStorage;
@@ -8,24 +7,12 @@ use crate::contracts_impl::datetime;
 use crate::entities::Deposit;
 
 pub struct DepositsSqliteStorage {
-    connection: Pool,
+    connection: Client,
 }
 
 impl DepositsSqliteStorage {
-    // Используется при самостоятельном создании хранилища; HTTP-слой
-    // берёт общее соединение через `from_pool`.
-    #[allow(dead_code)]
-    pub async fn new(database_url: &str) -> Self {
-        let path_buf = PathBuf::from(database_url);
-        let builder = PoolBuilder::new()
-            .path(path_buf)
-            .journal_mode(JournalMode::Wal)
-            .num_conns(10);
-        let connection = builder.open().await.expect("Database creation error");
-        Self { connection }
-    }
-
-    pub fn from_pool(connection: Pool) -> Self {
+    /// Создаёт хранилище поверх соединения, выданного пулом.
+    pub fn from_connection(connection: Client) -> Self {
         Self { connection }
     }
 }

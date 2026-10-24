@@ -9,6 +9,7 @@ use crate::contracts::ClientsStorage;
 use crate::contracts_impl::ClientsSqliteStorage;
 use crate::entities::Client;
 
+use super::database_error;
 use super::payloads::{AddClientPayload, ClientResponse, ErrorResponse, UpdateClientPayload};
 
 pub async fn add_client(
@@ -45,7 +46,10 @@ pub async fn add_client(
         phone: client.phone.clone(),
     };
 
-    let storage = ClientsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = ClientsSqliteStorage::from_connection(connection.client().clone());
     match storage.add(client).await {
         Ok(()) => Response::Created().with_json(response_payload),
         Err(error) => {
@@ -67,7 +71,10 @@ pub async fn get_client(
         });
     };
 
-    let storage = ClientsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = ClientsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(client)) => Response::OK().with_json(ClientResponse {
             id: client.id.to_string(),
@@ -114,7 +121,10 @@ pub async fn update_client(
         });
     }
 
-    let storage = ClientsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = ClientsSqliteStorage::from_connection(connection.client().clone());
     let existing = match storage.get(id).await {
         Ok(Some(client)) => client,
         Ok(None) => {
@@ -168,7 +178,10 @@ pub async fn remove_client(
         });
     };
 
-    let storage = ClientsSqliteStorage::from_pool((*context.connection_pool).clone());
+    let Ok(connection) = context.connection_pool.acquire().await else {
+        return database_error();
+    };
+    let storage = ClientsSqliteStorage::from_connection(connection.client().clone());
     match storage.get(id).await {
         Ok(Some(_)) => {}
         Ok(None) => {

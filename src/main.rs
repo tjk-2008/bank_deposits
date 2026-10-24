@@ -1,6 +1,5 @@
 use std::sync::Arc;
 
-use async_sqlite::{JournalMode, PoolBuilder};
 use ohkami::fang::Context;
 use ohkami::{Ohkami, Route};
 
@@ -11,18 +10,18 @@ mod entities;
 mod http;
 
 use context::RequestContext;
+use contracts_impl::ManagedConnectionPool;
+
+const DATABASE_PATH: &str = "database/data.db";
+const MAX_CONNECTIONS_COUNT: usize = 10;
 
 fn main() -> smol::io::Result<()> {
     smol::block_on(async {
-        let pool = PoolBuilder::new()
-            .path("database/data.db")
-            .journal_mode(JournalMode::Wal)
-            .num_conns(10)
-            .open()
-            .await
-            .expect("Database creation error");
+        let connection_pool =
+            ManagedConnectionPool::initialize(DATABASE_PATH.to_string(), MAX_CONNECTIONS_COUNT)
+                .await;
 
-        let request_context = RequestContext::new(Arc::new(pool));
+        let request_context = RequestContext::new(Arc::new(connection_pool));
 
         Ohkami::new((
             Context::new(request_context),
